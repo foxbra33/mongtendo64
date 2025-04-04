@@ -7,7 +7,7 @@ export class WeaponSystem {
         this.pistol = null;
         this.bullets = [];
         this.lastShotTime = 0;
-        this.shootCooldown = 500; // milliseconds between shots
+        this.shootCooldown = 250; // Reduced from 500ms to 250ms (half the original cooldown)
         this.bulletSpeed = 0.05; // Drastically reduced from 0.5 to 0.05
         this.bulletLifetime = 10000; // milliseconds before bullet is removed
         this.smokeTrails = []; // Store smoke trail particles
@@ -18,6 +18,10 @@ export class WeaponSystem {
         
         // Setup event listeners
         this.setupEventListeners();
+
+        // Setup gunshot sound
+        this.gunshotSound = new Audio('/assets/sounds/GunshotPistol_BW.56967.wav');
+        this.gunshotSound.volume = 0.5; // Adjust volume as needed
     }
     
     createPistol() {
@@ -81,13 +85,19 @@ export class WeaponSystem {
         
         this.lastShotTime = currentTime;
         
+        // Play or restart gunshot sound
+        this.gunshotSound.currentTime = 0; // Reset sound to start
+        this.gunshotSound.play().catch(error => {
+            console.log("Error playing sound:", error);
+        });
+        
         // Get camera direction
         const direction = new THREE.Vector3(0, 0, -1);
         direction.applyQuaternion(this.camera.quaternion);
         direction.normalize();
         
         // Create bullet - cylinder shape instead of sphere
-        const bulletGeometry = new THREE.CylinderGeometry(0.05, 0.05, 0.3, 16);
+        const bulletGeometry = new THREE.CylinderGeometry(0.018, 0.018, 0.084, 16);
         const bulletMaterial = new THREE.MeshStandardMaterial({ 
             color: 0xff0000, // Bright red color
             roughness: 0.2,
