@@ -9,6 +9,8 @@ export class PhysicsWorld {
         this.colliders = new Map();
         this.playerBody = null;
         this.playerCollider = null;
+        this.playerWireframe = null;
+        this.groundWireframe = null;
     }
 
     async initialize() {
@@ -21,17 +23,41 @@ export class PhysicsWorld {
     }
 
     createPlayer(position = { x: 0, y: 2, z: 0 }) {
-        // Create player rigid body
+        // Create player rigid body with mass
         const rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic()
             .setTranslation(position.x, position.y, position.z)
             .setLinearDamping(0.5) // Add some damping to make movement smoother
             .setAngularDamping(0.5);
+            
+        // Create the rigid body
         this.playerBody = this.world.createRigidBody(rigidBodyDesc);
+        
+        // Note: Mass is set to default value (1.0 kg) as setMass is not available
+        // In Rapier 0.12.0, mass is determined by the collider's density and volume
+        // We'll adjust the collider properties instead
+
+        // Lock rotations to prevent tipping over
+        this.playerBody.lockRotations(true);
 
         // Create player collider (capsule shape for better character movement)
         const colliderDesc = RAPIER.ColliderDesc.capsule(0.5, 0.5) // radius, half-height
-            .setTranslation(0.0, 0.5, 0.0); // Offset to align with player's feet
+            .setTranslation(0.0, 0.5, 0.0) // Offset to align with player's feet
+            .setFriction(0.1) // Low friction to prevent sticking
+            .setRestitution(0.0) // No bounce
+            .setDensity(1.0); // Set density to 1.0 kg/m³ for a more reasonable mass
         this.playerCollider = this.world.createCollider(colliderDesc, this.playerBody);
+
+        // Create wireframe visualization of the collision capsule
+        const capsuleGeometry = new THREE.CapsuleGeometry(0.5, 1, 4, 8);
+        const wireframeMaterial = new THREE.MeshBasicMaterial({
+            color: 0x00ff00,
+            wireframe: true,
+            transparent: true,
+            opacity: 0.5
+        });
+        const wireframeMesh = new THREE.Mesh(capsuleGeometry, wireframeMaterial);
+        wireframeMesh.position.y = 0.5; // Match the collider's offset
+        this.playerWireframe = wireframeMesh;
 
         // Store references
         this.bodies.set('player', this.playerBody);
@@ -58,8 +84,21 @@ export class PhysicsWorld {
 
         // Create ground collider
         const groundColliderDesc = RAPIER.ColliderDesc.cuboid(10.0, 0.1, 10.0)
-            .setTranslation(0.0, -0.1, 0.0);
+            .setTranslation(0.0, -0.1, 0.0)
+            .setFriction(0.5); // Reduced friction to a more reasonable value
         const groundCollider = this.world.createCollider(groundColliderDesc);
+
+        // Create wireframe visualization for ground collider
+        const groundWireframeGeometry = new THREE.BoxGeometry(20, 0.2, 20);
+        const groundWireframeMaterial = new THREE.MeshBasicMaterial({
+            color: 0x0000ff,
+            wireframe: true,
+            transparent: true,
+            opacity: 0.3
+        });
+        const groundWireframe = new THREE.Mesh(groundWireframeGeometry, groundWireframeMaterial);
+        groundWireframe.position.y = -0.1;
+        this.groundWireframe = groundWireframe;
 
         // Store references
         this.colliders.set(groundMesh.uuid, groundCollider);
@@ -89,11 +128,67 @@ export class PhysicsWorld {
         const colliderDesc = RAPIER.ColliderDesc.cuboid(0.5, 0.5, 0.5);
         const collider = this.world.createCollider(colliderDesc, rigidBody);
 
+        // Create wireframe visualization for cube collider
+        const cubeWireframeGeometry = new THREE.BoxGeometry(1, 1, 1);
+        const cubeWireframeMaterial = new THREE.MeshBasicMaterial({
+            color: 0xff00ff,
+            wireframe: true,
+            transparent: true,
+            opacity: 0.3
+        });
+        const cubeWireframe = new THREE.Mesh(cubeWireframeGeometry, cubeWireframeMaterial);
+        cubeWireframe.position.copy(cubeMesh.position);
+        cubeMesh.userData.wireframe = cubeWireframe;
+
         // Store references
         this.bodies.set(cubeMesh.uuid, rigidBody);
         this.colliders.set(cubeMesh.uuid, collider);
 
         return cubeMesh;
+    }
+
+    createBullet(position = { x: 0, y: 0, z: 0 }) {
+        // Create rigid body for bullet
+        const rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic()
+            .setTranslation(position.x, position.y, position.z)
+            .setLinearDamping(0.5); // Increased damping to slow bullets down
+            
+        const rigidBody = this.world.createRigidBody(rigidBodyDesc);
+        
+        // Create collider for bullet - cylinder shape
+        const colliderDesc = RAPIER.ColliderDesc.capsule(0.05, 0.15) // radius, half-height
+            .setFriction(0.1)
+            .setRestitution(0.5) // Some bounce
+            .setDensity(1.0);
+            
+        const collider = this.world.createCollider(colliderDesc, rigidBody);
+        
+        // Store references with a unique ID
+        const bulletId = 'bullet_' + Date.now();
+        this.bodies.set(bulletId, rigidBody);
+        this.colliders.set(bulletId, collider);
+        
+        // Store the ID in the rigid body for later reference
+        rigidBody.userData = { id: bulletId };
+        
+        return rigidBody;
+    }
+    
+    removeBody(body) {
+        if (body && body.userData && body.userData.id) {
+            const id = body.userData.id;
+            
+            // Remove collider if it exists
+            if (this.colliders.has(id)) {
+                const collider = this.colliders.get(id);
+                this.world.removeCollider(collider, true);
+                this.colliders.delete(id);
+            }
+            
+            // Remove rigid body
+            this.world.removeRigidBody(body);
+            this.bodies.delete(id);
+        }
     }
 
     update() {
@@ -104,7 +199,33 @@ export class PhysicsWorld {
 
         // Update mesh positions based on physics bodies
         this.bodies.forEach((body, uuid) => {
-            if (uuid === 'player') return; // Skip player body as it's handled by PlayerController
+            if (uuid === 'player') {
+                // Update player wireframe position
+                if (this.playerWireframe && this.playerBody) {
+                    const position = this.playerBody.translation();
+                    this.playerWireframe.position.set(position.x, position.y, position.z);
+                }
+                return; // Skip player body as it's handled by PlayerController
+            }
+            
+            // Check if this is a bullet (has userData.id that starts with 'bullet_')
+            if (body.userData && body.userData.id && body.userData.id.startsWith('bullet_')) {
+                // Find the bullet mesh in the scene
+                const bulletId = body.userData.id;
+                const bulletMesh = this.scene.children.find(child => 
+                    child.userData && child.userData.bulletId === bulletId
+                );
+                
+                if (bulletMesh) {
+                    // Update bullet mesh position based on physics body
+                    const position = body.translation();
+                    bulletMesh.position.set(position.x, position.y, position.z);
+                    
+                    // Log for debugging
+                    console.log("PhysicsWorld updating bullet:", bulletId, position.x, position.y, position.z);
+                }
+                return;
+            }
             
             const mesh = this.scene.getObjectByProperty('uuid', uuid);
             if (mesh) {
@@ -113,6 +234,12 @@ export class PhysicsWorld {
                 
                 mesh.position.set(position.x, position.y, position.z);
                 mesh.quaternion.set(rotation.x, rotation.y, rotation.z, rotation.w);
+                
+                // Update wireframe position if it exists
+                if (mesh.userData.wireframe) {
+                    mesh.userData.wireframe.position.copy(mesh.position);
+                    mesh.userData.wireframe.quaternion.copy(mesh.quaternion);
+                }
             }
         });
     }

@@ -17,8 +17,8 @@ export class PlayerController {
         // Movement parameters
         this.velocity = new THREE.Vector3();
         this.direction = new THREE.Vector3();
-        this.moveSpeed = 10.0;
-        this.jumpForce = 10.0;
+        this.moveSpeed = 20.0;
+        this.jumpForce = 15.0;
         
         // Setup pointer lock controls
         this.controls = new PointerLockControls(camera, domElement);
