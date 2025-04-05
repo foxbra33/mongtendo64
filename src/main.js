@@ -28,6 +28,11 @@ async function main() {
             z: Math.random() * 10 - 5 
         });
         engine.addToScene(cube);
+        
+        // Add wireframe visualization for the cube
+        if (cube.userData.wireframe) {
+            engine.addToScene(cube.userData.wireframe);
+        }
     }
 
     // Start the game loop
