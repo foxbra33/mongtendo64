@@ -7,9 +7,9 @@ export class WeaponSystem {
         this.pistol = null;
         this.bullets = [];
         this.lastShotTime = 0;
-        this.shootCooldown = 250; // Reduced from 500ms to 250ms (half the original cooldown)
-        this.bulletSpeed = 0.05; // Drastically reduced from 0.5 to 0.05
-        this.bulletLifetime = 10000; // milliseconds before bullet is removed
+        this.shootCooldown = 125; // Reduced from 250ms to 125ms (half the previous cooldown)
+        this.bulletSpeed = 0.5; // Changed from 100 to 0.5 for more reasonable speed
+        this.bulletLifetime = 10000; // 10 seconds
         this.smokeTrails = []; // Store smoke trail particles
         this.smokeSpawnRate = 50; // milliseconds between smoke particles
         
