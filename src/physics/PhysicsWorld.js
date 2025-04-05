@@ -71,25 +71,26 @@ export class PhysicsWorld {
     }
 
     createGround() {
-        // Create ground mesh
-        const groundGeometry = new THREE.PlaneGeometry(20, 20);
+        // Create ground
+        const groundGeometry = new THREE.PlaneGeometry(1000, 1000); // Increased from 100x100 to 1000x1000
         const groundMaterial = new THREE.MeshStandardMaterial({ 
-            color: 0x808080,
+            color: 0x808080,  // Grey color
             roughness: 0.8,
             metalness: 0.2
         });
-        const groundMesh = new THREE.Mesh(groundGeometry, groundMaterial);
-        groundMesh.rotation.x = -Math.PI / 2;
-        groundMesh.receiveShadow = true;
+        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = -2;
+        ground.receiveShadow = true;
 
         // Create ground collider
-        const groundColliderDesc = RAPIER.ColliderDesc.cuboid(10.0, 0.1, 10.0)
-            .setTranslation(0.0, -0.1, 0.0)
-            .setFriction(0.5); // Reduced friction to a more reasonable value
+        const groundColliderDesc = RAPIER.ColliderDesc.cuboid(500.0, 0.1, 500.0) // Increased from 10.0 to 500.0 to match visual size
+            .setTranslation(0.0, -2.1, 0.0) // Adjusted Y position to match ground mesh
+            .setFriction(0.5);
         const groundCollider = this.world.createCollider(groundColliderDesc);
 
         // Create wireframe visualization for ground collider
-        const groundWireframeGeometry = new THREE.BoxGeometry(20, 0.2, 20);
+        const groundWireframeGeometry = new THREE.BoxGeometry(1000, 0.2, 1000); // Increased to match visual size
         const groundWireframeMaterial = new THREE.MeshBasicMaterial({
             color: 0x0000ff,
             wireframe: true,
@@ -97,13 +98,12 @@ export class PhysicsWorld {
             opacity: 0.3
         });
         const groundWireframe = new THREE.Mesh(groundWireframeGeometry, groundWireframeMaterial);
-        groundWireframe.position.y = -0.1;
-        this.groundWireframe = groundWireframe;
+        groundWireframe.position.y = -2.1; // Adjusted to match ground position
 
         // Store references
-        this.colliders.set(groundMesh.uuid, groundCollider);
+        this.colliders.set(ground.uuid, groundCollider);
 
-        return groundMesh;
+        return ground;
     }
 
     createDynamicCube(position = { x: 0, y: 0, z: 0 }) {
